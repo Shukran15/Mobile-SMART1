@@ -1,9 +1,9 @@
 package ru.cleverence.mobilesmarts;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -11,14 +11,19 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class MobileSmartMain extends Application {
 
-
+    private RestTemplate restTemplate = new RestTemplate();
+    private ObjectMapper mapper = new ObjectMapper();
+    private PropertyLoader propertyLoader = new PropertyLoader();
     private ObservableList<Product> products = FXCollections.observableArrayList();
     private SkTable table = new SkTable();
     private Scene mainScene;
@@ -26,30 +31,25 @@ public class MobileSmartMain extends Application {
     private Scene secondStartScene;
     private Scene thirdStartScene;
     private Scene showTableScene;
+    private Scene homeScene;
 
     private Stage primaryStage;
 
 
-
-    // TODO: Ловить исключения при вызове метода parsInt
     @Override
-    public void start(Stage stage) throws IOException {
-
-
+    public void start(Stage stage) {
         primaryStage = stage;
         initMainScene();
         initFirstScene();
         initShowTableScene();
-     // initSecondScene();
-        //  initThirdScene();
+        initHomeScene();
         stage.setScene(mainScene);
 
-       // stage.setTitle("Привет!");
         stage.show();
 
     }
 
-    public void initMainScene(){
+    public void initMainScene() {
 
         Button startButton = new Button("Начать");
         startButton.setMaxSize(300, 80);
@@ -66,20 +66,33 @@ public class MobileSmartMain extends Application {
 
         Button tempExitButton = new Button("Временно выйти");
         tempExitButton.setMaxSize(300, 80);
+        tempExitButton.setOnAction(e -> {
+            primaryStage.setScene(homeScene);
+        });
+
         Button finishButton = new Button("Завершить");
         finishButton.setMaxSize(300, 80);
+
+        finishButton.setOnAction(e -> {
+            String json = generateJson();
+            //  sendDocument(json);
+            System.out.println(json);
+
+            products.clear();
+            primaryStage.close();
+
+        });
 
         VBox startPage = new VBox(10, startButton, showButton, tempExitButton, finishButton);
 
         startPage.setAlignment(Pos.CENTER);
 
 
-        mainScene  = new Scene(startPage, 640, 480);
+        mainScene = new Scene(startPage, 640, 480);
 
     }
 
-    private void initFirstScene(){
-
+    private void initFirstScene() {
         Product product = new Product();
 
 
@@ -105,20 +118,15 @@ public class MobileSmartMain extends Application {
         firstStartScene = new Scene(shkVbox, 640, 480);
 
         firstStartScene.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ESCAPE){
+            if (e.getCode() == KeyCode.ESCAPE) {
                 primaryStage.setScene(mainScene);
             }
         });
 
 
-
-
     }
 
-
-    private void initSecondScene(Product product){
-
-
+    private void initSecondScene(Product product) {
         Label label2 = new Label(product.getName());
         label2.setMaxSize(300, 80);
         Label label = new Label("Введите кол-во");
@@ -133,19 +141,15 @@ public class MobileSmartMain extends Application {
             initThirdScene(product);
             primaryStage.setScene(thirdStartScene);
         });
-        VBox kolvoVbox = new VBox(10,label2, label, textField, nextButton);
+        VBox kolvoVbox = new VBox(10, label2, label, textField, nextButton);
         kolvoVbox.setAlignment(Pos.CENTER);
         secondStartScene = new Scene(kolvoVbox, 640, 480);
 
     }
 
-
     private void initThirdScene(Product product) {
-
-
-
         Label nameLabel = new Label(product.getName());
-        nameLabel.setMaxSize(300,80);
+        nameLabel.setMaxSize(300, 80);
         Label label = new Label("Введите описание");
         label.setMaxSize(300, 80);
         TextField textField = new TextField();
@@ -153,10 +157,10 @@ public class MobileSmartMain extends Application {
         Button nextButton = new Button("следующий товар");
         nextButton.setMaxSize(80, 80);
         nextButton.setOnAction(e -> {
-
             String description = textField.getText();
             product.setDescription(description);
-            products.add(product);
+
+            addToProducts(product);
 
             initFirstScene();
             primaryStage.setScene(firstStartScene);
@@ -165,11 +169,9 @@ public class MobileSmartMain extends Application {
         VBox descriptionVbox = new VBox(10, nameLabel, label, textField, nextButton);
         descriptionVbox.setAlignment(Pos.CENTER);
         thirdStartScene = new Scene(descriptionVbox, 640, 480);
-
-
     }
 
-    private void initShowTableScene(){
+    private void initShowTableScene() {
 
         TableView<Product> productTable = new TableView<>(products);
         productTable.setPrefWidth(250);
@@ -197,6 +199,57 @@ public class MobileSmartMain extends Application {
         );
 
 
+    }
+
+    private void initHomeScene() {
+        Label sceneNameLabel = new Label("Домашняя страница");
+        sceneNameLabel.setMaxSize(300, 80);
+
+        Button toMainButton = new Button("Продолжить");
+        toMainButton.setMaxSize(300, 80);
+
+        toMainButton.setOnAction(e -> {
+            primaryStage.setScene(mainScene);
+        });
+
+
+        VBox homePage = new VBox(10, sceneNameLabel, toMainButton);
+        homePage.setAlignment(Pos.CENTER);
+
+        homeScene = new Scene(homePage, 640, 480);
+    }
+
+    private void addToProducts(Product pr) {
+        for (Product product : products) {
+            if (product.getShk().equals(pr.getShk()) && product.getDescription().equals(pr.getDescription())) {
+                product.setKolvo(product.getKolvo() + pr.getKolvo());
+                return;
+            }
+        }
+        products.add(pr);
+    }
+
+
+    private String generateJson() {
+        String json = "";
+        try {
+            json = mapper.writeValueAsString(products);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return json;
+    }
+
+    private void sendDocument(String json) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<String> entity = new HttpEntity<String>(json, headers);
+
+        String urlToSend = propertyLoader.readParam("url");
+
+        ResponseEntity<String> response = restTemplate.postForEntity(urlToSend, entity, String.class);
     }
 
     public static void main(String[] args) {
