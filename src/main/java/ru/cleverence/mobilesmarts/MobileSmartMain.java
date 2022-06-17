@@ -127,6 +127,7 @@ public class MobileSmartMain extends Application {
 
     }
 
+
     private void initSecondScene(Product product) {
         Label label2 = new Label(product.getName());
         label2.setMaxSize(300, 80);
