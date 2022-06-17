@@ -173,6 +173,7 @@ public class MobileSmartMain extends Application {
         thirdStartScene = new Scene(descriptionVbox, 640, 480);
     }
 
+
     private void initShowTableScene() {
 
         TableView<Product> productTable = new TableView<>(products);
