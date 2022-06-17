@@ -113,6 +113,7 @@ public class MobileSmartMain extends Application {
         });
 
 
+
         VBox shkVbox = new VBox(10, label, textField, nextButton);
         shkVbox.setAlignment(Pos.CENTER);
         firstStartScene = new Scene(shkVbox, 640, 480);
